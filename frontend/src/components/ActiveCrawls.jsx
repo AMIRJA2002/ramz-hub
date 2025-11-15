@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Clock, CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
+import { Activity, Clock, CheckCircle2, XCircle, RefreshCw, Calendar } from 'lucide-react';
 import { crawlerAPI } from '../services/api';
 import { useDarkMode } from '../contexts/DarkModeContext';
-import { formatDateTimeWithTehranTime } from '../utils/timeFormatter';
+import { formatDateTimeWithTehranTime, getRelativeTimeUntil } from '../utils/timeFormatter';
 
 const ActiveCrawls = () => {
   const [configs, setConfigs] = useState([]);
@@ -155,19 +155,27 @@ const ActiveCrawls = () => {
                           <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 truncate">
                             {config.base_url}
                           </p>
-                          <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                          <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 flex-wrap">
                             <div className="flex items-center gap-1">
                               <Clock className="w-4 h-4" />
                               <span>Every {config.crawl_interval_minutes} min</span>
                             </div>
-                                {config.last_crawl && (
-                                  <div className="flex items-center gap-1">
-                                    <CheckCircle2 className="w-4 h-4" />
-                                    <span>
-                                      Last: {formatDateTimeWithTehranTime(config.last_crawl)}
-                                    </span>
-                                  </div>
-                                )}
+                            {config.last_crawl && (
+                              <div className="flex items-center gap-1">
+                                <CheckCircle2 className="w-4 h-4" />
+                                <span>
+                                  Last: {formatDateTimeWithTehranTime(config.last_crawl)}
+                                </span>
+                              </div>
+                            )}
+                            {config.next_scheduled_crawl && !isActiveCrawling && (
+                              <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                                <Calendar className="w-4 h-4" />
+                                <span>
+                                  Next: {getRelativeTimeUntil(config.next_scheduled_crawl)}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">

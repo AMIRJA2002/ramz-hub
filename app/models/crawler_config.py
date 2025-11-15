@@ -11,6 +11,7 @@ class CrawlerConfig(Document):
     crawl_interval_minutes: int = Field(default=15)
     config: Optional[Dict[str, Any]] = None
     last_crawl: Optional[datetime] = None
+    last_scheduled_crawl: Optional[datetime] = None  # Track last scheduled crawl (excludes manual runs)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     

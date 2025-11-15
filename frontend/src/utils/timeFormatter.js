@@ -72,3 +72,32 @@ export const formatDateTimeWithTehranTime = (dateString) => {
   return formatDateTimeToJalaliTehran(dateString);
 };
 
+/**
+ * Calculate relative time until a future date (e.g., "in 5 minutes", "in 2 hours")
+ * @param {string} dateString - ISO date string (future date)
+ * @returns {string} - Relative time string
+ */
+export const getRelativeTimeUntil = (dateString) => {
+  if (!dateString) return 'N/A';
+  
+  try {
+    const futureDate = moment.utc(dateString);
+    const now = moment.utc();
+    const diffMinutes = futureDate.diff(now, 'minutes');
+    const diffHours = futureDate.diff(now, 'hours');
+    const diffDays = futureDate.diff(now, 'days');
+    
+    if (diffMinutes < 0) {
+      return 'Soon';
+    } else if (diffMinutes < 60) {
+      return `in ${diffMinutes} min`;
+    } else if (diffHours < 24) {
+      return `in ${diffHours} hour${diffHours > 1 ? 's' : ''}`;
+    } else {
+      return `in ${diffDays} day${diffDays > 1 ? 's' : ''}`;
+    }
+  } catch (error) {
+    return 'N/A';
+  }
+};
+

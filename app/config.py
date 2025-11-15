@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     ENABLE_SCHEDULER: bool = True
     CRAWL_INTERVAL_MINUTES: int = 15
     
+    # Celery
+    CELERY_BROKER_URL: str = "amqp://guest:guest@rabbitmq:5672//"
+    CELERY_RESULT_BACKEND: str = "rpc://"
+    
     # API
     API_TITLE: str = "Rasad Pedia Crawler API"
     API_VERSION: str = "1.0.0"

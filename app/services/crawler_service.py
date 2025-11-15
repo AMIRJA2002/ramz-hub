@@ -85,7 +85,9 @@ class CrawlerService:
             # Update crawler config last_crawl
             config = await CrawlerConfig.find_one(CrawlerConfig.site_name == site_name)
             if config:
-                config.last_crawl = datetime.datetime.now(datetime.timezone.utc)
+                now = datetime.datetime.now(datetime.timezone.utc)
+                config.last_crawl = now
+                # Note: last_scheduled_crawl is only updated by Celery scheduled tasks, not manual runs
                 await config.save()
             
             # Remove from active crawls
@@ -145,22 +147,38 @@ class CrawlerService:
             }
     
     @classmethod
-    def get_active_crawls(cls) -> Dict[str, bool]:
-        """Get list of currently active crawls"""
+    async def get_active_crawls(cls) -> Dict[str, bool]:
+        """Get list of currently active crawls from both in-memory and database"""
         now = datetime.datetime.now(datetime.timezone.utc)
         active = {}
         
-        # Check which crawls are still active (within last 5 minutes)
+        # Check in-memory active crawls (for crawls started from FastAPI)
         for site_name, start_time in cls._active_crawls.items():
             diff_seconds = (now - start_time).total_seconds()
             # Consider active if started within last 5 minutes
-            active[site_name] = diff_seconds < 300
+            if diff_seconds < 300:
+                active[site_name] = True
         
         # Clean up old entries
         cls._active_crawls = {
             k: v for k, v in cls._active_crawls.items()
             if (now - v).total_seconds() < 300
         }
+        
+        # Also check database for running crawls (from Celery tasks)
+        try:
+            running_logs = await CrawlLog.find(
+                CrawlLog.status == "running"
+            ).to_list()
+            
+            for log in running_logs:
+                # Consider active if started within last 5 minutes
+                if log.start_time:
+                    diff_seconds = (now - log.start_time).total_seconds()
+                    if diff_seconds < 300:
+                        active[log.site_name] = True
+        except Exception:
+            pass  # If database query fails, just use in-memory tracking
         
         return active
     

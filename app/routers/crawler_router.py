@@ -1,22 +1,18 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from bson import ObjectId
 from app.services.crawler_service import CrawlerService
 from app.models.crawler_config import CrawlerConfig
 from app.models.crawl_result import CrawlResult
 from app.models.crawl_log import CrawlLog
+from app.celery_app import crawl_site_task
 
 
 router = APIRouter(prefix="/api/crawler", tags=["crawler"])
 
 crawler_service = CrawlerService()
-
-# Get scheduler service from main app
-def get_scheduler_service():
-    from app.main import scheduler_service
-    return scheduler_service
 
 
 class CrawlerConfigCreate(BaseModel):
@@ -56,9 +52,8 @@ async def create_crawler_config(config: CrawlerConfigCreate):
     
     await crawler_config.insert()
     
-    # Add to scheduler if active
-    if config.is_active:
-        get_scheduler_service().add_site_job(config.site_name, config.crawl_interval_minutes)
+    # Note: Celery Beat will automatically pick up new active configs
+    # No need to manually schedule - the periodic task checks all active configs
     
     return {
         "id": str(crawler_config.id),
@@ -73,9 +68,11 @@ async def create_crawler_config(config: CrawlerConfigCreate):
 async def list_crawler_configs():
     """List all crawler configurations"""
     configs = await CrawlerConfig.find_all().to_list()
+    now = datetime.now(timezone.utc)
     
-    return [
-        {
+    result = []
+    for c in configs:
+        config_dict = {
             "id": str(c.id),
             "site_name": c.site_name,
             "base_url": c.base_url,
@@ -84,8 +81,33 @@ async def list_crawler_configs():
             "last_crawl": c.last_crawl.isoformat() if c.last_crawl else None,
             "created_at": c.created_at.isoformat(),
         }
-        for c in configs
-    ]
+        
+        # Calculate next scheduled crawl time (only for active configs, based on scheduled crawls only)
+        if c.is_active:
+            # Use last_scheduled_crawl if available, otherwise use last_crawl as fallback
+            last_scheduled = c.last_scheduled_crawl or c.last_crawl
+            
+            if last_scheduled:
+                # Ensure timezone-aware datetime
+                if last_scheduled.tzinfo is None:
+                    last_scheduled = last_scheduled.replace(tzinfo=timezone.utc)
+                
+                # Next crawl = last_scheduled + interval
+                next_crawl = last_scheduled + timedelta(minutes=c.crawl_interval_minutes)
+                # If next crawl is in the past (should have already run), set to now + interval
+                if next_crawl < now:
+                    next_crawl = now + timedelta(minutes=c.crawl_interval_minutes)
+            else:
+                # Never crawled, next crawl is soon (within next minute check cycle)
+                next_crawl = now + timedelta(minutes=1)
+            
+            config_dict["next_scheduled_crawl"] = next_crawl.isoformat()
+        else:
+            config_dict["next_scheduled_crawl"] = None
+        
+        result.append(config_dict)
+    
+    return result
 
 
 @router.get("/config/{site_name}", response_model=dict)
@@ -96,7 +118,8 @@ async def get_crawler_config(site_name: str):
     if not config:
         raise HTTPException(status_code=404, detail=f"Site {site_name} not found")
     
-    return {
+    now = datetime.now(timezone.utc)
+    result = {
         "id": str(config.id),
         "site_name": config.site_name,
         "base_url": config.base_url,
@@ -105,6 +128,27 @@ async def get_crawler_config(site_name: str):
         "config": config.config,
         "last_crawl": config.last_crawl.isoformat() if config.last_crawl else None,
     }
+    
+    # Calculate next scheduled crawl time (only for active configs, based on scheduled crawls only)
+    if config.is_active:
+        # Use last_scheduled_crawl if available, otherwise use last_crawl as fallback
+        last_scheduled = config.last_scheduled_crawl or config.last_crawl
+        
+        if last_scheduled:
+            # Ensure timezone-aware datetime
+            if last_scheduled.tzinfo is None:
+                last_scheduled = last_scheduled.replace(tzinfo=timezone.utc)
+            
+            next_crawl = last_scheduled + timedelta(minutes=config.crawl_interval_minutes)
+            if next_crawl < now:
+                next_crawl = now + timedelta(minutes=config.crawl_interval_minutes)
+        else:
+            next_crawl = now + timedelta(minutes=1)
+        result["next_scheduled_crawl"] = next_crawl.isoformat()
+    else:
+        result["next_scheduled_crawl"] = None
+    
+    return result
 
 
 @router.put("/config/{site_name}", response_model=dict)
@@ -118,19 +162,14 @@ async def update_crawler_config(
     if not config:
         raise HTTPException(status_code=404, detail=f"Site {site_name} not found")
     
-    scheduler = get_scheduler_service()
+    # Note: Celery Beat will automatically pick up config changes
+    # No need to manually update schedules - the periodic task checks all active configs
     
     if config_update.is_active is not None:
         config.is_active = config_update.is_active
-        if config_update.is_active:
-            scheduler.add_site_job(site_name, config.crawl_interval_minutes)
-        else:
-            scheduler.remove_site_job(site_name)
     
     if config_update.crawl_interval_minutes is not None:
         config.crawl_interval_minutes = config_update.crawl_interval_minutes
-        if config.is_active:
-            scheduler.add_site_job(site_name, config.crawl_interval_minutes)
     
     if config_update.config is not None:
         config.config = config_update.config
@@ -154,7 +193,8 @@ async def delete_crawler_config(site_name: str):
     if not config:
         raise HTTPException(status_code=404, detail=f"Site {site_name} not found")
     
-    get_scheduler_service().remove_site_job(site_name)
+    # Note: Celery Beat will automatically stop crawling when config is deleted
+    # No need to manually remove schedules
     
     await config.delete()
     
@@ -163,7 +203,7 @@ async def delete_crawler_config(site_name: str):
 
 @router.post("/crawl", response_model=dict)
 async def crawl_site(request: CrawlRequest, background_tasks: BackgroundTasks):
-    """Trigger a crawl for a specific site"""
+    """Trigger a crawl for a specific site (runs synchronously)"""
     try:
         result = await crawler_service.crawl_site(request.site_name, request.base_url)
         return result
@@ -176,18 +216,22 @@ async def crawl_site_background(
     request: CrawlRequest,
     background_tasks: BackgroundTasks
 ):
-    """Trigger a background crawl for a specific site"""
-    async def crawl_task():
-        await crawler_service.crawl_site(request.site_name, request.base_url)
-    
-    background_tasks.add_task(crawl_task)
-    return {"message": f"Crawl started for {request.site_name} in background"}
+    """Trigger a background crawl for a specific site using Celery"""
+    try:
+        # Trigger Celery task
+        task = crawl_site_task.delay(request.site_name, request.base_url)
+        return {
+            "message": f"Crawl started for {request.site_name} in background",
+            "task_id": task.id
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/active", response_model=dict)
 async def get_active_crawls():
     """Get list of currently active/running crawls"""
-    active_crawls = CrawlerService.get_active_crawls()
+    active_crawls = await CrawlerService.get_active_crawls()
     return {"active_crawls": active_crawls}
 
 
