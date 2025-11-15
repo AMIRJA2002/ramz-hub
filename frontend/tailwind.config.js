@@ -26,8 +26,14 @@ export default {
       },
       keyframes: {
         'blink-purple': {
-          '0%, 100%': { opacity: '1', boxShadow: '0 0 10px rgba(168, 85, 247, 0.5)' },
-          '50%': { opacity: '0.5', boxShadow: '0 0 20px rgba(168, 85, 247, 0.8)' },
+          '0%, 100%': { 
+            opacity: '1', 
+            boxShadow: '0 0 15px rgba(168, 85, 247, 0.6), 0 0 30px rgba(168, 85, 247, 0.4)' 
+          },
+          '50%': { 
+            opacity: '0.7', 
+            boxShadow: '0 0 25px rgba(168, 85, 247, 0.9), 0 0 50px rgba(168, 85, 247, 0.6)' 
+          },
         },
       },
     },

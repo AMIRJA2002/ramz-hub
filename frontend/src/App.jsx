@@ -11,29 +11,29 @@ function App() {
   const { isDark, toggleDarkMode } = useDarkMode();
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+    <div className="min-h-screen transition-colors">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 transition-colors">
+      <header className="glass-card dark:glass-card-dark sticky top-0 z-50 transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Rasad Pedia</h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Crawler Dashboard</p>
+              <h1 className="text-3xl font-bold text-white dark:text-gray-100 drop-shadow-lg">Rasad Pedia</h1>
+              <p className="text-sm text-white/80 dark:text-gray-300 mt-1 drop-shadow">Crawler Dashboard</p>
             </div>
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span>System Online</span>
+              <div className="flex items-center gap-2 text-sm text-white/90 dark:text-gray-200">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50"></div>
+                <span className="font-medium">System Online</span>
               </div>
               <button
                 onClick={toggleDarkMode}
-                className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                className="p-2 rounded-xl glass-button dark:glass-button text-white dark:text-gray-200 hover:scale-110 transition-transform"
                 aria-label="Toggle dark mode"
               >
                 {isDark ? (
-                  <Sun className="w-5 h-5 text-yellow-500" />
+                  <Sun className="w-5 h-5" />
                 ) : (
-                  <Moon className="w-5 h-5 text-gray-700" />
+                  <Moon className="w-5 h-5" />
                 )}
               </button>
             </div>
@@ -42,15 +42,15 @@ function App() {
       </header>
 
       {/* Navigation Tabs */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 transition-colors">
+      <div className="glass dark:glass-dark border-b border-white/20 dark:border-white/10 transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <nav className="flex space-x-8">
             <button
               onClick={() => setActiveTab('active')}
-              className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-all ${
                 activeTab === 'active'
-                  ? 'border-primary-500 dark:border-primary-400 text-primary-600 dark:text-primary-400'
-                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                  ? 'border-white/60 dark:border-primary-400 text-white dark:text-primary-300'
+                  : 'border-transparent text-white/70 dark:text-gray-400 hover:text-white dark:hover:text-gray-300 hover:border-white/30 dark:hover:border-gray-500'
               }`}
             >
               <Activity className="w-5 h-5" />
@@ -58,10 +58,10 @@ function App() {
             </button>
             <button
               onClick={() => setActiveTab('results')}
-              className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-all ${
                 activeTab === 'results'
-                  ? 'border-primary-500 dark:border-primary-400 text-primary-600 dark:text-primary-400'
-                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                  ? 'border-white/60 dark:border-primary-400 text-white dark:text-primary-300'
+                  : 'border-transparent text-white/70 dark:text-gray-400 hover:text-white dark:hover:text-gray-300 hover:border-white/30 dark:hover:border-gray-500'
               }`}
             >
               <FileText className="w-5 h-5" />
@@ -69,10 +69,10 @@ function App() {
             </button>
             <button
               onClick={() => setActiveTab('stats')}
-              className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-all ${
                 activeTab === 'stats'
-                  ? 'border-primary-500 dark:border-primary-400 text-primary-600 dark:text-primary-400'
-                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                  ? 'border-white/60 dark:border-primary-400 text-white dark:text-primary-300'
+                  : 'border-transparent text-white/70 dark:text-gray-400 hover:text-white dark:hover:text-gray-300 hover:border-white/30 dark:hover:border-gray-500'
               }`}
             >
               <BarChart3 className="w-5 h-5" />
@@ -80,10 +80,10 @@ function App() {
             </button>
             <button
               onClick={() => setActiveTab('logs')}
-              className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-all ${
                 activeTab === 'logs'
-                  ? 'border-primary-500 dark:border-primary-400 text-primary-600 dark:text-primary-400'
-                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                  ? 'border-white/60 dark:border-primary-400 text-white dark:text-primary-300'
+                  : 'border-transparent text-white/70 dark:text-gray-400 hover:text-white dark:hover:text-gray-300 hover:border-white/30 dark:hover:border-gray-500'
               }`}
             >
               <History className="w-5 h-5" />
@@ -124,9 +124,9 @@ function App() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-12 transition-colors">
+      <footer className="glass dark:glass-dark border-t border-white/20 dark:border-white/10 mt-12 transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-center text-sm text-white/80 dark:text-gray-300">
             © 2025 Rasad Pedia Crawler. All rights reserved.
           </p>
         </div>
