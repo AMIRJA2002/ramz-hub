@@ -7,7 +7,7 @@ from app.services.crawler_service import CrawlerService
 from app.models.crawler_config import CrawlerConfig
 from app.models.crawl_result import CrawlResult
 from app.models.crawl_log import CrawlLog
-from app.celery_app import crawl_site_task
+from app.celery_app import crawl_site_task, test_task, celery_app
 
 
 router = APIRouter(prefix="/api/crawler", tags=["crawler"])
@@ -370,3 +370,47 @@ async def get_crawl_log(log_id: str):
         "error_message": log.error_message,
         "duration_seconds": log.duration_seconds,
     }
+
+
+@router.post("/test-celery", response_model=dict)
+async def test_celery_task():
+    """Test Celery task execution"""
+    try:
+        task = test_task.delay()
+        return {
+            "message": "Test task queued",
+            "task_id": task.id,
+            "status": "pending"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error queuing task: {str(e)}")
+
+
+@router.get("/celery-status", response_model=dict)
+async def get_celery_status():
+    """Get Celery worker and queue status"""
+    try:
+        inspect = celery_app.control.inspect()
+        
+        # Get active workers
+        active_workers = inspect.active() or {}
+        registered_workers = inspect.registered() or {}
+        stats = inspect.stats() or {}
+        
+        # Get scheduled tasks from Beat
+        scheduled = inspect.scheduled() or {}
+        
+        return {
+            "active_workers": len(active_workers),
+            "workers": list(active_workers.keys()),
+            "registered_tasks": {
+                worker: len(tasks) for worker, tasks in registered_workers.items()
+            },
+            "scheduled_tasks": scheduled,
+            "worker_stats": stats
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "message": "Could not inspect Celery workers"
+        }

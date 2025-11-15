@@ -72,7 +72,7 @@ services:
       - CELERY_RESULT_BACKEND=rpc://
     volumes:
       - .:/app
-    command: celery -A app.celery_app worker --loglevel=info --concurrency=4
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=4 --logfile=/tmp/celery_worker.log
 
   celery_beat:
     build: .
@@ -83,6 +83,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      celery_worker:
+        condition: service_started
     environment:
       - MONGODB_URL=mongodb://mongodb:27017
       - MONGODB_DB_NAME=rasad_pedia
@@ -91,7 +93,7 @@ services:
       - CELERY_RESULT_BACKEND=rpc://
     volumes:
       - .:/app
-    command: celery -A app.celery_app beat --loglevel=info
+    command: celery -A app.celery_app beat --loglevel=info --logfile=/tmp/celery_beat.log
 
   flower:
     build: .
