@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     MONGODB_DB_NAME: str = "rasad_pedia"
     
     # Crawler Settings
-    CRAWLER_USER_AGENT: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    CRAWLER_USER_AGENT: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     CRAWLER_TIMEOUT: int = 30
     CRAWLER_MAX_CONCURRENT: int = 10
     CRAWLER_RETRY_ATTEMPTS: int = 3

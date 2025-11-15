@@ -1,72 +1,68 @@
 """
 Test script for CoinDesk crawler
-Run this to verify the crawler is working correctly
 """
 import asyncio
 from app.crawlers.coindesk_crawler import CoindeskCrawler
 
 
-async def test_coindesk_crawler():
+async def test_coindesk():
     """Test the CoinDesk crawler"""
-    print("Testing CoinDesk Crawler...")
-    print("=" * 50)
+    print("=" * 60)
+    print("Testing CoinDesk Crawler (RSS + HTML)")
+    print("=" * 60)
     
-    crawler = CoindeskCrawler()
-    
-    async with crawler:
-        # Test getting article URLs
-        print("\n1. Testing get_article_urls()...")
-        article_urls = await crawler.get_article_urls()
-        print(f"   Found {len(article_urls)} article URLs")
+    async with CoindeskCrawler() as crawler:
+        # Test getting article URLs from RSS
+        print("\n1. Testing get_article_urls() from RSS...")
+        article_urls = await crawler.get_article_urls(limit=5)
+        print(f"   Found {len(article_urls)} article URLs from RSS feed")
         
-        if article_urls:
-            print(f"\n   First 5 URLs:")
-            for i, url in enumerate(article_urls[:5], 1):
-                print(f"   {i}. {url}")
-            
-            # Test parsing first article
-            print(f"\n2. Testing parse_article() on first URL...")
-            first_url = article_urls[0]
-            print(f"   URL: {first_url}")
-            
-            article_data = await crawler.parse_article(first_url)
-            
-            if article_data:
-                print(f"\n   ✓ Successfully parsed article!")
-                print(f"   Title: {article_data.get('title', 'N/A')[:100]}")
-                print(f"   Content length: {len(article_data.get('content', ''))} characters")
-                print(f"   Author: {article_data.get('meta', {}).get('author', 'N/A')}")
-                print(f"   Date: {article_data.get('meta', {}).get('published_date', 'N/A')}")
-                print(f"   Category: {article_data.get('meta', {}).get('category', 'N/A')}")
-                
-                # Show first 200 chars of content
-                content = article_data.get('content', '')
-                if content:
-                    print(f"\n   Content preview:")
-                    print(f"   {content[:200]}...")
-            else:
-                print(f"   ✗ Failed to parse article")
+        if not article_urls:
+            print("   ❌ No article URLs found!")
+            return
+        
+        for i, url in enumerate(article_urls[:3], 1):
+            print(f"   {i}. {url[:70]}...")
+        
+        # Test parsing individual article
+        print("\n2. Testing parse_article() on first URL...")
+        first_url = article_urls[0]
+        article = await crawler.parse_article(first_url)
+        
+        if article:
+            print(f"   ✓ Successfully parsed article:")
+            print(f"     Title: {article['title'][:60]}...")
+            print(f"     Content: {len(article['content'])} chars")
+            print(f"     Author: {article['meta'].get('author', 'N/A')}")
+            print(f"     Date: {article['meta'].get('published_date', 'N/A')}")
+            print(f"     Category: {article['meta'].get('category', 'N/A')}")
         else:
-            print("   ✗ No article URLs found")
+            print(f"   ❌ Failed to parse article")
+            return
         
         # Test full crawl
-        print(f"\n3. Testing full crawl()...")
-        results = await crawler.crawl()
-        print(f"   Crawled {len(results)} articles")
+        print("\n3. Testing full crawl() method...")
+        articles = await crawler.crawl(limit=3)
+        print(f"   Retrieved {len(articles)} full articles\n")
         
-        if results:
-            print(f"\n   Sample results:")
-            for i, result in enumerate(results[:3], 1):
-                print(f"\n   Article {i}:")
-                print(f"   - Title: {result.get('title', 'N/A')[:80]}")
-                print(f"   - URL: {result.get('source_url', 'N/A')}")
-                print(f"   - Content: {len(result.get('content', ''))} chars")
-    
-    print("\n" + "=" * 50)
-    print("Test completed!")
+        if not articles:
+            print("   ❌ No articles retrieved!")
+            return
+        
+        # Display article details
+        for i, article in enumerate(articles, 1):
+            print(f"   Article {i}:")
+            print(f"     Title: {article['title'][:60]}...")
+            print(f"     Content: {len(article['content'])} chars")
+            print(f"     Author: {article['meta'].get('author', 'N/A')}")
+            print(f"     Date: {article['meta'].get('published_date', 'N/A')}")
+            print(f"     Category: {article['meta'].get('category', 'N/A')}")
+            print()
+        
+        print("=" * 60)
+        print("✅ All tests passed!")
+        print("=" * 60)
 
 
 if __name__ == "__main__":
-    asyncio.run(test_coindesk_crawler())
-
-
+    asyncio.run(test_coindesk())

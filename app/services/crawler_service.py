@@ -17,6 +17,7 @@ class CrawlerService:
     CRAWLER_REGISTRY = {
         "coinbase": CoinbaseCrawler,
         "coindesk": CoindeskCrawler,
+        "crypto_news": CryptoNewsCrawler,
     }
     
     @staticmethod
@@ -30,10 +31,8 @@ class CrawlerService:
         
         if site_name in CrawlerService.CRAWLER_REGISTRY:
             return CrawlerService.CRAWLER_REGISTRY[site_name](base_url=base_url)
-        elif base_url:
-            return CryptoNewsCrawler(site_name=site_name, base_url=base_url)
         else:
-            raise ValueError(f"No crawler found for site: {site_name} and no base_url provided")
+            raise ValueError(f"No crawler found for site: {site_name}")
     
     async def crawl_site(self, site_name: str, base_url: Optional[str] = None) -> Dict[str, Any]:
         """Crawl a specific site and store results"""

@@ -54,11 +54,11 @@ async def init_crawler_configs():
         },
         {
             "site_name": "crypto_news",
-            "base_url": "https://cryptonews.com",
-            "is_active": False,  # Set to False by default, activate when needed
+            "base_url": "https://cryptonews.com/news/",
+            "is_active": True,
             "crawl_interval_minutes": 30,
             "config": {
-                "description": "Generic crypto news crawler",
+                "description": "CryptoNews.com news crawler (RSS-based)",
                 "type": "generic"
             }
         }
