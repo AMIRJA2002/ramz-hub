@@ -12,7 +12,7 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD:-MongoDB_Strong_Pass_2024}
       MONGO_INITDB_DATABASE: ${MONGODB_DB_NAME:-rasad_pedia}
     healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test -u ${MONGODB_USERNAME:-rasad_admin} -p ${MONGODB_PASSWORD:-MongoDB_Strong_Pass_2024} --authenticationDatabase admin --quiet
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')", "--quiet"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -82,7 +82,8 @@ services:
       - .env
     volumes:
       - .:/app
-    command: celery -A app.celery_app beat --loglevel=info
+      - celery_beat_data:/data
+    command: celery -A app.celery_app beat --loglevel=info --schedule=/data/celerybeat-schedule
 
   flower:
     build: .
@@ -96,7 +97,8 @@ services:
       - .env
     volumes:
       - .:/app
-    command: celery -A app.celery_app flower --port=5555
+      - flower_data:/data
+    command: celery -A app.celery_app flower --port=5555 --db=/data/flower.db --persistent=True
 
   frontend:
     build:
@@ -114,5 +116,7 @@ services:
 volumes:
   mongodb_data:
   rabbitmq_data:
+  flower_data:
+  celery_beat_data:
 
 
