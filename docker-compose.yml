@@ -4,13 +4,15 @@ services:
     container_name: rasad_pedia_mongodb
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "27018:27017"
     volumes:
       - mongodb_data:/data/db
     environment:
-      MONGO_INITDB_DATABASE: rasad_pedia
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USERNAME:-rasad_admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD:-MongoDB_Strong_Pass_2024}
+      MONGO_INITDB_DATABASE: ${MONGODB_DB_NAME:-rasad_pedia}
     healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test -u ${MONGODB_USERNAME:-rasad_admin} -p ${MONGODB_PASSWORD:-MongoDB_Strong_Pass_2024} --authenticationDatabase admin --quiet
       interval: 10s
       timeout: 5s
       retries: 5
@@ -23,8 +25,8 @@ services:
       - "5672:5672"
       - "15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-rasad_user}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-RabbitMQ_Strong_Pass_2024}
     healthcheck:
       test: rabbitmq-diagnostics -q ping
       interval: 10s
@@ -44,13 +46,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-    environment:
-      - MONGODB_URL=mongodb://mongodb:27017
-      - MONGODB_DB_NAME=rasad_pedia
-      - ENABLE_SCHEDULER=true
-      - CRAWL_INTERVAL_MINUTES=15
-      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
-      - CELERY_RESULT_BACKEND=rpc://
+    env_file:
+      - .env
     volumes:
       - .:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -64,15 +61,11 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-    environment:
-      - MONGODB_URL=mongodb://mongodb:27017
-      - MONGODB_DB_NAME=rasad_pedia
-      - ENABLE_SCHEDULER=true
-      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
-      - CELERY_RESULT_BACKEND=rpc://
+    env_file:
+      - .env
     volumes:
       - .:/app
-    command: celery -A app.celery_app worker --loglevel=info --concurrency=4 --logfile=/tmp/celery_worker.log
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=4 -E --hostname=crawler_worker@%h
 
   celery_beat:
     build: .
@@ -85,15 +78,11 @@ services:
         condition: service_healthy
       celery_worker:
         condition: service_started
-    environment:
-      - MONGODB_URL=mongodb://mongodb:27017
-      - MONGODB_DB_NAME=rasad_pedia
-      - ENABLE_SCHEDULER=true
-      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
-      - CELERY_RESULT_BACKEND=rpc://
+    env_file:
+      - .env
     volumes:
       - .:/app
-    command: celery -A app.celery_app beat --loglevel=info --logfile=/tmp/celery_beat.log
+    command: celery -A app.celery_app beat --loglevel=info
 
   flower:
     build: .
@@ -103,9 +92,8 @@ services:
       - "5555:5555"
     depends_on:
       - rabbitmq
-    environment:
-      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
-      - CELERY_RESULT_BACKEND=rpc://
+    env_file:
+      - .env
     volumes:
       - .:/app
     command: celery -A app.celery_app flower --port=5555

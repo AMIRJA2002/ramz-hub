@@ -1,15 +1,29 @@
 from pydantic_settings import BaseSettings
-from typing import List
+from typing import Optional
 import os
 
 
 class Settings(BaseSettings):
     # Database
-    MONGODB_URL: str = "mongodb://mongodb:27017"
-    MONGODB_DB_NAME: str = "rasad_pedia"
+    MONGODB_URL: str
+    MONGODB_DB_NAME: str
+    MONGODB_USERNAME: Optional[str] = None
+    MONGODB_PASSWORD: Optional[str] = None
+    
+    # RabbitMQ
+    RABBITMQ_USER: Optional[str] = None
+    RABBITMQ_PASSWORD: Optional[str] = None
+    
+    # Redis
+    REDIS_URL: str
+    REDIS_PASSWORD: Optional[str] = None
+    
+    # Celery
+    CELERY_BROKER_URL: str
+    CELERY_RESULT_BACKEND: str
     
     # Crawler Settings
-    CRAWLER_USER_AGENT: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    CRAWLER_USER_AGENT: str
     CRAWLER_TIMEOUT: int = 30
     CRAWLER_MAX_CONCURRENT: int = 10
     CRAWLER_RETRY_ATTEMPTS: int = 3
@@ -19,13 +33,16 @@ class Settings(BaseSettings):
     ENABLE_SCHEDULER: bool = True
     CRAWL_INTERVAL_MINUTES: int = 15
     
-    # Celery
-    CELERY_BROKER_URL: str = "amqp://guest:guest@rabbitmq:5672//"
-    CELERY_RESULT_BACKEND: str = "rpc://"
-    
     # API
     API_TITLE: str = "Rasad Pedia Crawler API"
     API_VERSION: str = "1.0.0"
+    
+    # LLM API Keys
+    OPENROUTER_API_KEY: str
+    
+    # Security
+    SECRET_KEY: str
+    API_KEY: Optional[str] = None
     
     class Config:
         env_file = ".env"
