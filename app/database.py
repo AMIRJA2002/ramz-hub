@@ -4,6 +4,7 @@ from app.config import settings
 from app.models.crawl_result import CrawlResult
 from app.models.crawler_config import CrawlerConfig
 from app.models.crawl_log import CrawlLog
+from app.models.translation import Translation
 
 
 class Database:
@@ -24,7 +25,7 @@ async def connect_to_mongo():
     database = db.client[settings.MONGODB_DB_NAME]
     await init_beanie(
         database=database,
-        document_models=[CrawlResult, CrawlerConfig, CrawlLog]
+        document_models=[CrawlResult, CrawlerConfig, CrawlLog, Translation]
     )
     
     # Create unique index for site_name

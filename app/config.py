@@ -39,7 +39,8 @@ class Settings(BaseSettings):
     
     # LLM API Keys
     OPENROUTER_API_KEY: str
-    
+    GEMINI_API_KEY: str
+
     # Security
     SECRET_KEY: str
     API_KEY: Optional[str] = None
