@@ -2,6 +2,7 @@ import json
 
 from app.config import settings
 from app.models.crawl_result import CrawlResult
+from app.models.translation import Translation
 from google import genai
 
 
@@ -52,3 +53,29 @@ class Translator:
         client = self._client()
         prompt = self._prompt(title=title, body=body)
         return self._call_model(client=client, prompt=prompt)
+    
+    def translate_and_save(self):
+        """Translate article and save to Translation model"""
+        # Check if translation already exists
+        existing = Translation.find_one(
+            Translation.article_id == str(self.article.id)
+        ).run()
+        
+        if existing:
+            return existing
+        
+        # Translate
+        translation_json = self.translate()
+        translation_data = json.loads(translation_json)
+        
+        # Save to database
+        translation = Translation(
+            article_id=str(self.article.id),
+            original_title=self.article.title or '',
+            translated_title=translation_data.get('title', ''),
+            translated_summary=translation_data.get('summary', ''),
+            source_site=self.article.source_site
+        )
+        translation.insert()
+        
+        return translation
