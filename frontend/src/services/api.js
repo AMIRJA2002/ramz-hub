@@ -2,21 +2,41 @@ import axios from 'axios';
 
 // In production (Docker), use relative path to go through nginx proxy
 // In development, use the full URL
-// If VITE_API_URL is set, use it; otherwise use relative path in production
 const getApiBaseUrl = () => {
-  if (import.meta.env.VITE_API_URL) {
+  // If VITE_API_URL is explicitly set and not empty, use it
+  if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL.trim() !== '') {
     return import.meta.env.VITE_API_URL;
   }
-  // In production (when running in Docker), use relative path (nginx will proxy)
-  // In development, use localhost
-  return import.meta.env.PROD ? '' : 'http://localhost:8003';
+  
+  // Check if we're running in production mode
+  // Vite sets import.meta.env.PROD to true in production builds
+  const isProduction = import.meta.env.PROD || import.meta.env.MODE === 'production';
+  
+  // Also check hostname - if not localhost, assume production
+  const isLocalhost = typeof window !== 'undefined' && 
+                      (window.location.hostname === 'localhost' || 
+                       window.location.hostname === '127.0.0.1');
+  
+  // In production or when not on localhost, use relative path (nginx will proxy)
+  if (isProduction || !isLocalhost) {
+    return '';
+  }
+  
+  // Development mode on localhost - use localhost:8003
+  return 'http://localhost:8003';
 };
 
 const API_BASE_URL = getApiBaseUrl();
 
-// Log API base URL for debugging (only in development)
-if (!import.meta.env.PROD) {
-  console.log('[API] Base URL:', API_BASE_URL || '(relative path - using nginx proxy)');
+// Log API base URL for debugging
+if (typeof window !== 'undefined') {
+  console.log('[API] Base URL:', API_BASE_URL || '(relative path - using nginx proxy)', {
+    PROD: import.meta.env.PROD,
+    MODE: import.meta.env.MODE,
+    VITE_API_URL: import.meta.env.VITE_API_URL,
+    hostname: window.location.hostname,
+    href: window.location.href
+  });
 }
 
 const api = axios.create({
