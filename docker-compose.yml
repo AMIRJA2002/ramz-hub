@@ -110,8 +110,9 @@ services:
       - "3000:80"
     depends_on:
       - app
-    environment:
-      - VITE_API_URL=http://localhost:8003
+    # Don't set VITE_API_URL in production - let it use relative path through nginx proxy
+    # environment:
+    #   - VITE_API_URL=http://localhost:8003
 
 volumes:
   mongodb_data:

@@ -1,13 +1,61 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8003';
+// In production (Docker), use relative path to go through nginx proxy
+// In development, use the full URL
+// If VITE_API_URL is set, use it; otherwise use relative path in production
+const getApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  // In production (when running in Docker), use relative path (nginx will proxy)
+  // In development, use localhost
+  return import.meta.env.PROD ? '' : 'http://localhost:8003';
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+// Log API base URL for debugging (only in development)
+if (!import.meta.env.PROD) {
+  console.log('[API] Base URL:', API_BASE_URL || '(relative path - using nginx proxy)');
+}
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000, // 30 seconds timeout
 });
+
+// Add request interceptor for debugging
+api.interceptors.request.use(
+  (config) => {
+    if (!import.meta.env.PROD) {
+      console.log('[API] Request:', config.method?.toUpperCase(), config.url);
+    }
+    return config;
+  },
+  (error) => {
+    console.error('[API] Request error:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor for error handling
+api.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    console.error('[API] Response error:', {
+      message: error.message,
+      url: error.config?.url,
+      status: error.response?.status,
+      data: error.response?.data,
+    });
+    return Promise.reject(error);
+  }
+);
 
 export const crawlerAPI = {
   // Get all crawler configs
