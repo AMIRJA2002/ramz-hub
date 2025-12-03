@@ -9,6 +9,7 @@ const ActiveCrawls = () => {
   const [loading, setLoading] = useState(true);
   const [crawlingStatus, setCrawlingStatus] = useState({});
   const [activeCrawls, setActiveCrawls] = useState({});
+  const [beatSchedule, setBeatSchedule] = useState({});
   const { isDark } = useDarkMode();
 
   const fetchConfigs = async () => {
@@ -28,6 +29,15 @@ const ActiveCrawls = () => {
       setActiveCrawls(data.active_crawls || {});
     } catch (error) {
       console.error('Error fetching active crawls:', error);
+    }
+  };
+
+  const fetchBeatSchedule = async () => {
+    try {
+      const data = await crawlerAPI.getBeatSchedule();
+      setBeatSchedule(data.schedules || {});
+    } catch (error) {
+      console.error('Error fetching beat schedule:', error);
     }
   };
 
@@ -54,6 +64,7 @@ const ActiveCrawls = () => {
   useEffect(() => {
     fetchConfigs();
     fetchActiveCrawls();
+    fetchBeatSchedule();
     
     // Refresh configs every 5 seconds
     const configInterval = setInterval(fetchConfigs, 5000);
@@ -61,9 +72,13 @@ const ActiveCrawls = () => {
     // Refresh active crawls more frequently (every 2 seconds) for real-time updates
     const activeInterval = setInterval(fetchActiveCrawls, 2000);
     
+    // Refresh beat schedule every 10 seconds
+    const beatInterval = setInterval(fetchBeatSchedule, 10000);
+    
     return () => {
       clearInterval(configInterval);
       clearInterval(activeInterval);
+      clearInterval(beatInterval);
     };
   }, []);
 
@@ -168,14 +183,36 @@ const ActiveCrawls = () => {
                                 </span>
                               </div>
                             )}
-                            {config.next_scheduled_crawl && !isActiveCrawling && (
-                              <div className="flex items-center gap-1 text-blue-200 dark:text-blue-400">
-                                <Calendar className="w-4 h-4" />
-                                <span>
-                                  Next: {getRelativeTimeUntil(config.next_scheduled_crawl)}
-                                </span>
-                              </div>
-                            )}
+                            {(() => {
+                              // Try to get next run time from beat schedule first
+                              const scheduleKey = Object.keys(beatSchedule).find(key => {
+                                const keyLower = key.toLowerCase();
+                                const siteNameLower = config.site_name.toLowerCase();
+                                return keyLower.includes(siteNameLower) || 
+                                       keyLower.includes(siteNameLower.replace('_', '')) ||
+                                       beatSchedule[key]?.task?.toLowerCase().includes(siteNameLower);
+                              });
+                              
+                              const nextRunTime = scheduleKey && beatSchedule[scheduleKey]?.next_run
+                                ? beatSchedule[scheduleKey].next_run
+                                : config.next_scheduled_crawl;
+                              
+                              if (nextRunTime && !isActiveCrawling) {
+                                const relativeTime = scheduleKey && beatSchedule[scheduleKey]?.next_run_relative
+                                  ? beatSchedule[scheduleKey].next_run_relative
+                                  : getRelativeTimeUntil(nextRunTime);
+                                
+                                return (
+                                  <div className="flex items-center gap-1 text-blue-200 dark:text-blue-400">
+                                    <Calendar className="w-4 h-4" />
+                                    <span className="font-medium">
+                                      Next: {relativeTime}
+                                    </span>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">

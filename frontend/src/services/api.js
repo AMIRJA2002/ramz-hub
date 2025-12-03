@@ -62,6 +62,18 @@ export const crawlerAPI = {
     const response = await api.get(`/api/crawler/logs/${logId}`);
     return response.data;
   },
+
+  // Get Beat schedule information
+  getBeatSchedule: async () => {
+    const response = await api.get('/api/crawler/beat-schedule');
+    return response.data;
+  },
+
+  // Get Celery status
+  getCeleryStatus: async () => {
+    const response = await api.get('/api/crawler/celery-status');
+    return response.data;
+  },
 };
 
 export default api;

@@ -1,13 +1,15 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone, timedelta
 from bson import ObjectId
 from app.services.crawler_service import CrawlerService
 from app.models.crawler_config import CrawlerConfig
 from app.models.crawl_result import CrawlResult
 from app.models.crawl_log import CrawlLog
-from app.celery_app import crawl_site_task, test_task, celery_app
+from app.celery_app import celery_app
+from app.tasks.general_tasks import crawl_site_task, test_task
+from celery.schedules import crontab
 
 
 router = APIRouter(prefix="/api/crawler", tags=["crawler"])
@@ -64,9 +66,55 @@ async def create_crawler_config(config: CrawlerConfigCreate):
     }
 
 
+def get_next_scheduled_time_from_beat(site_name: str, last_scheduled_crawl: Optional[datetime] = None) -> Optional[datetime]:
+    """Get next scheduled crawl time from Beat Schedule"""
+    beat_schedule = celery_app.conf.beat_schedule or {}
+    now = datetime.now(timezone.utc)
+    
+    # Find the schedule for this site
+    schedule_key = None
+    for key, schedule_config in beat_schedule.items():
+        if site_name in key.lower() or schedule_config.get("task", "").endswith(f"crawl_{site_name}"):
+            schedule_key = key
+            break
+    
+    if not schedule_key:
+        return None
+    
+    schedule_config = beat_schedule[schedule_key]
+    schedule_obj = schedule_config.get("schedule")
+    
+    # Handle different schedule types
+    if isinstance(schedule_obj, (int, float)):
+        # Interval-based schedule (in seconds)
+        interval_seconds = float(schedule_obj)
+        # Use last_scheduled_crawl if available
+        if last_scheduled_crawl:
+            if last_scheduled_crawl.tzinfo is None:
+                last_scheduled_crawl = last_scheduled_crawl.replace(tzinfo=timezone.utc)
+            next_time = last_scheduled_crawl + timedelta(seconds=interval_seconds)
+            # If next time is in the past, calculate from now
+            if next_time < now:
+                # Find next occurrence from now
+                next_time = now + timedelta(seconds=interval_seconds)
+        else:
+            # Never crawled, next crawl is at next interval
+            next_time = now + timedelta(seconds=interval_seconds)
+        return next_time
+    elif isinstance(schedule_obj, crontab):
+        # Crontab-based schedule
+        # Get next run time from crontab
+        next_time = schedule_obj.remaining_estimate(datetime.now(timezone.utc))
+        if next_time:
+            return next_time
+        return None
+    else:
+        return None
+
+
 @router.get("/config", response_model=List[dict])
 async def list_crawler_configs():
-    """List all crawler configurations"""
+    """List all crawler configurations with next scheduled crawl time from Beat Schedule"""
     configs = await CrawlerConfig.find_all().to_list()
     now = datetime.now(timezone.utc)
     
@@ -79,29 +127,27 @@ async def list_crawler_configs():
             "is_active": c.is_active,
             "crawl_interval_minutes": c.crawl_interval_minutes,
             "last_crawl": c.last_crawl.isoformat() if c.last_crawl else None,
+            "last_scheduled_crawl": c.last_scheduled_crawl.isoformat() if c.last_scheduled_crawl else None,
             "created_at": c.created_at.isoformat(),
         }
         
-        # Calculate next scheduled crawl time (only for active configs, based on scheduled crawls only)
+        # Calculate next scheduled crawl time from Beat Schedule
         if c.is_active:
-            # Use last_scheduled_crawl if available, otherwise use last_crawl as fallback
-            last_scheduled = c.last_scheduled_crawl or c.last_crawl
-            
-            if last_scheduled:
-                # Ensure timezone-aware datetime
-                if last_scheduled.tzinfo is None:
-                    last_scheduled = last_scheduled.replace(tzinfo=timezone.utc)
-                
-                # Next crawl = last_scheduled + interval
-                next_crawl = last_scheduled + timedelta(minutes=c.crawl_interval_minutes)
-                # If next crawl is in the past (should have already run), set to now + interval
-                if next_crawl < now:
-                    next_crawl = now + timedelta(minutes=c.crawl_interval_minutes)
+            next_crawl = get_next_scheduled_time_from_beat(c.site_name, c.last_scheduled_crawl)
+            if next_crawl:
+                config_dict["next_scheduled_crawl"] = next_crawl.isoformat()
             else:
-                # Never crawled, next crawl is soon (within next minute check cycle)
-                next_crawl = now + timedelta(minutes=1)
-            
-            config_dict["next_scheduled_crawl"] = next_crawl.isoformat()
+                # Fallback to old method if Beat Schedule not found
+                last_scheduled = c.last_scheduled_crawl or c.last_crawl
+                if last_scheduled:
+                    if last_scheduled.tzinfo is None:
+                        last_scheduled = last_scheduled.replace(tzinfo=timezone.utc)
+                    next_crawl = last_scheduled + timedelta(minutes=c.crawl_interval_minutes)
+                    if next_crawl < now:
+                        next_crawl = now + timedelta(minutes=c.crawl_interval_minutes)
+                else:
+                    next_crawl = now + timedelta(minutes=1)
+                config_dict["next_scheduled_crawl"] = next_crawl.isoformat()
         else:
             config_dict["next_scheduled_crawl"] = None
         
@@ -386,6 +432,116 @@ async def test_celery_task():
         raise HTTPException(status_code=500, detail=f"Error queuing task: {str(e)}")
 
 
+@router.post("/test-crawler-task/{site_name}", response_model=dict)
+async def test_crawler_task(site_name: str):
+    """Test a specific crawler task manually"""
+    try:
+        # Map site names to task functions
+        task_map = {
+            "coindesk": "app.celery_app.crawl_coindesk",
+            "crypto_news": "app.celery_app.crawl_crypto_news",
+            "coinbase": "app.celery_app.crawl_coinbase",
+        }
+        
+        if site_name not in task_map:
+            raise HTTPException(status_code=400, detail=f"Unknown site: {site_name}. Available: {list(task_map.keys())}")
+        
+        task_name = task_map[site_name]
+        
+        # Get the task from celery app
+        if task_name not in celery_app.tasks:
+            raise HTTPException(status_code=500, detail=f"Task '{task_name}' not found in registered tasks")
+        
+        task = celery_app.tasks[task_name]
+        
+        # Execute the task
+        result = task.delay()
+        
+        return {
+            "message": f"Crawler task for {site_name} queued",
+            "task_id": result.id,
+            "task_name": task_name,
+            "status": "pending"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error queuing task: {str(e)}")
+
+
+@router.get("/beat-schedule", response_model=Dict[str, Any])
+async def get_beat_schedule():
+    """Get Celery Beat schedule information with next run times"""
+    try:
+        beat_schedule = celery_app.conf.beat_schedule or {}
+        now = datetime.now(timezone.utc)
+        
+        schedule_info = {}
+        for schedule_name, schedule_config in beat_schedule.items():
+            task_name = schedule_config.get("task", "")
+            schedule_obj = schedule_config.get("schedule")
+            queue = schedule_config.get("options", {}).get("queue", "default")
+            
+            # Calculate next run time
+            next_run = None
+            if isinstance(schedule_obj, (int, float)):
+                # Interval-based schedule
+                interval_seconds = float(schedule_obj)
+                # Extract site name from schedule name (e.g., "crawl_coindesk_schedule" -> "coindesk")
+                site_name = schedule_name.replace("crawl_", "").replace("_schedule", "")
+                # Also try to extract from task name
+                if not site_name or site_name == schedule_name:
+                    task_name_parts = task_name.split(".")
+                    if len(task_name_parts) > 0:
+                        last_part = task_name_parts[-1]
+                        if last_part.startswith("crawl_"):
+                            site_name = last_part.replace("crawl_", "")
+                
+                config = await CrawlerConfig.find_one(CrawlerConfig.site_name == site_name)
+                if config and config.last_scheduled_crawl:
+                    last_scheduled = config.last_scheduled_crawl
+                    if last_scheduled.tzinfo is None:
+                        last_scheduled = last_scheduled.replace(tzinfo=timezone.utc)
+                    next_run = last_scheduled + timedelta(seconds=interval_seconds)
+                    if next_run < now:
+                        next_run = now + timedelta(seconds=interval_seconds)
+                else:
+                    next_run = now + timedelta(seconds=interval_seconds)
+            elif isinstance(schedule_obj, crontab):
+                # Crontab-based schedule
+                next_run = schedule_obj.remaining_estimate(now)
+            
+            schedule_info[schedule_name] = {
+                "task": task_name,
+                "schedule": str(schedule_obj),
+                "queue": queue,
+                "next_run": next_run.isoformat() if next_run else None,
+                "next_run_relative": None
+            }
+            
+            # Calculate relative time
+            if next_run:
+                diff_seconds = (next_run - now).total_seconds()
+                if diff_seconds < 60:
+                    schedule_info[schedule_name]["next_run_relative"] = f"in {int(diff_seconds)} seconds"
+                elif diff_seconds < 3600:
+                    schedule_info[schedule_name]["next_run_relative"] = f"in {int(diff_seconds / 60)} minutes"
+                elif diff_seconds < 86400:
+                    schedule_info[schedule_name]["next_run_relative"] = f"in {int(diff_seconds / 3600)} hours"
+                else:
+                    schedule_info[schedule_name]["next_run_relative"] = f"in {int(diff_seconds / 86400)} days"
+        
+        return {
+            "schedules": schedule_info,
+            "total": len(schedule_info)
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "message": "Could not get Beat schedule"
+        }
+
+
 @router.get("/celery-status", response_model=dict)
 async def get_celery_status():
     """Get Celery worker and queue status"""
@@ -400,12 +556,17 @@ async def get_celery_status():
         # Get scheduled tasks from Beat
         scheduled = inspect.scheduled() or {}
         
+        # Get all registered tasks from celery_app
+        all_registered_tasks = list(celery_app.tasks.keys())
+        user_tasks = [t for t in all_registered_tasks if not t.startswith('celery.')]
+        
         return {
             "active_workers": len(active_workers),
             "workers": list(active_workers.keys()),
             "registered_tasks": {
                 worker: len(tasks) for worker, tasks in registered_workers.items()
             },
+            "all_registered_tasks": user_tasks,
             "scheduled_tasks": scheduled,
             "worker_stats": stats
         }
