@@ -43,6 +43,6 @@ The frontend will be available at `http://localhost:3000`
 
 ## Environment Variables
 
-- `VITE_API_URL`: Backend API URL (default: `http://localhost:8000`)
+- `VITE_API_URL`: Backend API URL (default: `http://localhost:8003`)
 
 

@@ -9,12 +9,12 @@ Simple cryptocurrency news crawler with Celery scheduling.
 docker-compose up -d
 
 # Access API
-http://localhost:8000/docs
+http://localhost:8003/docs
 ```
 
 ## Services
 
-- **API**: http://localhost:8000
+- **API**: http://localhost:8003
 - **MongoDB**: localhost:27017
 - **Redis**: localhost:6379
 
