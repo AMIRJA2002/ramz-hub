@@ -469,6 +469,25 @@ async def test_crawler_task(site_name: str):
         raise HTTPException(status_code=500, detail=f"Error queuing task: {str(e)}")
 
 
+@router.post("/test-translation-task", response_model=dict)
+async def test_translation_task():
+    """Test translation task manually"""
+    try:
+        from app.tasks.translation_task import translate_unprocessed_articles
+        
+        # Execute the task
+        result = translate_unprocessed_articles.delay()
+        
+        return {
+            "message": "Translation task queued",
+            "task_id": result.id,
+            "task_name": "app.celery_app.translate_unprocessed_articles",
+            "status": "pending"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error queuing translation task: {str(e)}")
+
+
 @router.get("/beat-schedule", response_model=Dict[str, Any])
 async def get_beat_schedule():
     """Get Celery Beat schedule information with next run times"""

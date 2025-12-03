@@ -21,6 +21,7 @@ celery_app = Celery(
         "app.tasks.crypto_news_task",
         "app.tasks.coinbase_task",
         "app.tasks.general_tasks",
+        "app.tasks.translation_task",
     ]
 )
 
@@ -100,7 +101,7 @@ def ensure_db_connection(sender=None, task_id=None, task=None, args=None, kwargs
 # This ensures tasks are registered when the module is imported
 print("\n[Celery Init] Importing tasks...")
 try:
-    from app.tasks import coindesk_task, crypto_news_task, coinbase_task, general_tasks
+    from app.tasks import coindesk_task, crypto_news_task, coinbase_task, general_tasks, translation_task
     print("[Celery Init] ✓ All tasks imported successfully")
 except Exception as e:
     print(f"[Celery Init] ✗ ERROR importing tasks: {e}")
@@ -135,6 +136,11 @@ if settings.ENABLE_SCHEDULER:
             "task": "app.celery_app.crawl_coinbase",
             "schedule": 60 * 60.0,  # Every 30 minutes
             "options": {"queue": "coinbase"},
+        },
+        "translate_unprocessed_articles_schedule": {
+            "task": "app.celery_app.translate_unprocessed_articles",
+            "schedule": 60.0,  # Every 1 minute
+            "options": {"queue": "default"},
         },
     }
     
