@@ -15,7 +15,7 @@ class Translator:
         """
         self.article = article
         self.provider = provider
-        self.openrouter_model = openrouter_model or "openai/chatgpt-4o-latest"
+        self.openrouter_model = openrouter_model or "google/gemini-2.5-flash-lite-preview-09-2025"
 
     # ------------------- GOOGLE -------------------
 
@@ -72,6 +72,7 @@ Input JSON:
         )
 
         result = response.json()
+        print(result, 40 * '*')
         return result["choices"][0]["message"]["content"]
 
     # ------------------- GOOGLE -------------------
@@ -109,14 +110,16 @@ Input JSON:
 
     # ------------------- SAVE RESULT -------------------
 
-    def translate_and_save(self):
+    async def translate_and_save(self):
         """Translate article and save to Translation model"""
-        existing = Translation.find_one(
+        existing = await Translation.find_one(
             Translation.article_id == str(self.article.id)
         )
+        print('sdfsdfsdf', 40 * '*')
+
         if existing:
             return existing
-
+        print('hererer')
         translation_json = self.translate()
         translation_data = json.loads(translation_json)
 
@@ -127,5 +130,5 @@ Input JSON:
             translated_summary=translation_data.get('summary', ''),
             source_site=self.article.source_site
         )
-        translation.insert()
+        await translation.save()
         return translation

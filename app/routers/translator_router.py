@@ -27,9 +27,12 @@ async def translate_article(request: TranslateRequest):
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
     
-    try:
-        translator = Translator(article)
-        data = translator.translate()
-        return {'msg': str(data)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Translation failed: {str(e)}")
+    # try:
+    translator = Translator(article)
+    data = translator.translate_and_save()
+    print(data)
+    # print(json.loads(data))
+    # return {'msg': str(data)}
+    return {'data': str(data)}
+    # except Exception as e:
+    #     raise HTTPException(status_code=500, detail=f"Translation failed: {str(e)}")
