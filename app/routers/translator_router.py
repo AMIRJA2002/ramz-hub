@@ -1,3 +1,5 @@
+import json
+
 from bson import ObjectId
 from app.models.crawl_result import CrawlResult
 from app.translation.translator import Translator
