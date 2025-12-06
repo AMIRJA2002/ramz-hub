@@ -2,6 +2,7 @@ import json
 
 from bson import ObjectId
 from app.models.crawl_result import CrawlResult
+from app.tasks.translation_task import translate_unprocessed_articles
 from app.translation.translator import Translator
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -27,12 +28,22 @@ async def translate_article(request: TranslateRequest):
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
     
-    # try:
-    translator = Translator(article)
-    data = translator.translate_and_save()
-    print(data)
-    # print(json.loads(data))
-    # return {'msg': str(data)}
-    return {'data': str(data)}
-    # except Exception as e:
-    #     raise HTTPException(status_code=500, detail=f"Translation failed: {str(e)}")
+    try:
+        translator = Translator(article)
+        translation = await translator.translate_and_save()
+        return {
+            'id': str(translation.id),
+            'article_id': translation.article_id,
+            'original_title': translation.original_title,
+            'translated_title': translation.translated_title,
+            'translated_summary': translation.translated_summary,
+            'source_site': translation.source_site,
+            'translation_timestamp': translation.translation_timestamp.isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Translation failed: {str(e)}")
+
+@router.get('/trans')
+async def translate_10_atricles():
+    a = translate_unprocessed_articles(12)
+    print(a)

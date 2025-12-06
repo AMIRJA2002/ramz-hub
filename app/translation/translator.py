@@ -62,17 +62,28 @@ Input JSON:
                 "Authorization": f"Bearer {API_KEY}",
                 "Content-Type": "application/json",
             },
-            data=json.dumps({
+            json={
                 "model": self.openrouter_model,
                 "messages": [
                     {"role": "user", "content": prompt}
                 ],
                 "response_format": {"type": "json_object"}  # forces JSON output
-            })
+            },
+            timeout=60
         )
-
+        
+        # Check for HTTP errors
+        response.raise_for_status()
+        
         result = response.json()
-        print(result, 40 * '*')
+        
+        # Check for API errors
+        if "error" in result:
+            raise Exception(f"OpenRouter API error: {result['error']}")
+        
+        if "choices" not in result or len(result["choices"]) == 0:
+            raise Exception(f"Invalid response from OpenRouter: {result}")
+        
         return result["choices"][0]["message"]["content"]
 
     # ------------------- GOOGLE -------------------
@@ -115,11 +126,10 @@ Input JSON:
         existing = await Translation.find_one(
             Translation.article_id == str(self.article.id)
         )
-        print('sdfsdfsdf', 40 * '*')
 
         if existing:
             return existing
-        print('hererer')
+
         translation_json = self.translate()
         translation_data = json.loads(translation_json)
 
@@ -130,5 +140,5 @@ Input JSON:
             translated_summary=translation_data.get('summary', ''),
             source_site=self.article.source_site
         )
-        await translation.save()
+        await translation.insert()
         return translation
