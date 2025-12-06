@@ -39,42 +39,27 @@ Input JSON:
 
 
     def _call_model(self, client, prompt):
-        """Call Gemini API with fallback models"""
         models_to_try = [
             "gemini-2.5-flash",
             "gemini-2.0-flash-exp",
             "gemini-1.5-flash",
         ]
         
-        last_error = None
-        for model_name in models_to_try:
-            try:
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                    config={
-                        "response_mime_type": "application/json",
-                    },
-                )
-                return response.text  # already JSON string
-            except Exception as e:
-                last_error = e
-                # If it's a 403 or model not found, try next model
-                error_str = str(e)
-                if "403" not in error_str and "not found" not in error_str.lower():
-                    # If it's a different error, raise it immediately
-                    raise
-                # Otherwise, continue to next model
-                continue
-        
-        # If all models failed, raise the last error
-        raise Exception(f"All models failed. Last error: {last_error}")
+        response = client.models.generate_content(
+            model=models_to_try[0],
+            contents=prompt,
+            config={
+                "response_mime_type": "application/json",
+            },
+        )
+        return response.text
 
     def translate(self):
         title, body = self.article.title, self.article.content
         client = self._client()
         prompt = self._prompt(title=title, body=body)
         result = self._call_model(client=client, prompt=prompt)
+        print(result, 400 * '*')
         return result
     
     def translate_and_save(self):
