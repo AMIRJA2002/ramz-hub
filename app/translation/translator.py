@@ -11,55 +11,78 @@ class Translator:
         self.article = article
 
     def _client(self):
+        if not settings.GEMINI_API_KEY:
+            raise ValueError("GEMINI_API_KEY is not set in environment variables")
         return genai.Client(api_key=settings.GEMINI_API_KEY)
 
     def _prompt(self, title: str, body: str):
         data: dict = {"title": title, "body": body}
 
         prompt = f"""
-            You will receive JSON input containing an English title and body.
+You will receive JSON input containing an English title and body.
 
-            Your task:
-            1. Translate the title into Persian.
-            2. Summarize the body in Persian, remove extra or repeated content, exclude sections unrelated to the main article, and remove the .
-            3. Return a clean JSON output ONLY in this format:
+Your task:
+1. Translate the title into Persian.
+2. Summarize the body in Persian, remove extra or repeated content, exclude sections unrelated to the main article.
+3. Return a clean JSON output ONLY in this format:
 
-            {{
-              "title": "{title}",
-              "summary": "..."
-            }}
+{{
+  "title": "...",
+  "summary": "..."
+}}
 
-            Input JSON:
-            {json.dumps(data, ensure_ascii=False)}
-            """
+Input JSON:
+{json.dumps(data, ensure_ascii=False)}
+"""
 
         return prompt
 
 
     def _call_model(self, client, prompt):
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-            config={
-                "response_mime_type": "application/json",
-                # "response_json_schema": Recipe.model_json_schema(),
-            },
-        )
-
-        return response.text  # already JSON string
+        """Call Gemini API with fallback models"""
+        models_to_try = [
+            "gemini-2.5-flash",
+            "gemini-2.0-flash-exp",
+            "gemini-1.5-flash",
+        ]
+        
+        last_error = None
+        for model_name in models_to_try:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config={
+                        "response_mime_type": "application/json",
+                    },
+                )
+                return response.text  # already JSON string
+            except Exception as e:
+                last_error = e
+                # If it's a 403 or model not found, try next model
+                error_str = str(e)
+                if "403" not in error_str and "not found" not in error_str.lower():
+                    # If it's a different error, raise it immediately
+                    raise
+                # Otherwise, continue to next model
+                continue
+        
+        # If all models failed, raise the last error
+        raise Exception(f"All models failed. Last error: {last_error}")
 
     def translate(self):
         title, body = self.article.title, self.article.content
         client = self._client()
         prompt = self._prompt(title=title, body=body)
-        return self._call_model(client=client, prompt=prompt)
+        result = self._call_model(client=client, prompt=prompt)
+        return result
     
     def translate_and_save(self):
         """Translate article and save to Translation model"""
         # Check if translation already exists
         existing = Translation.find_one(
             Translation.article_id == str(self.article.id)
-        ).run()
+        )
         
         if existing:
             return existing
