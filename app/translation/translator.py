@@ -15,7 +15,7 @@ class Translator:
         """
         self.article = article
         self.provider = provider
-        self.openrouter_model = openrouter_model or "google/gemini-2.0-flash-exp:free"
+        self.openrouter_model = openrouter_model or "openai/chatgpt-4o-latest"
 
     # ------------------- GOOGLE -------------------
 
