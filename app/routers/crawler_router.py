@@ -441,6 +441,7 @@ async def test_crawler_task(site_name: str):
             "coindesk": "app.celery_app.crawl_coindesk",
             "crypto_news": "app.celery_app.crawl_crypto_news",
             "coinbase": "app.celery_app.crawl_coinbase",
+            "cointelegraph": "app.celery_app.crawl_cointelegraph",
         }
         
         if site_name not in task_map:
@@ -467,6 +468,41 @@ async def test_crawler_task(site_name: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error queuing task: {str(e)}")
+
+
+@router.post("/test-crawl/{site_name}", response_model=dict)
+async def test_crawl_manual(site_name: str, limit: Optional[int] = None):
+    """Test crawler manually for a specific site (synchronous, for testing)"""
+    try:
+        # Check if site is in registry
+        if site_name not in CrawlerService.CRAWLER_REGISTRY:
+            available_sites = list(CrawlerService.CRAWLER_REGISTRY.keys())
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Unknown site: {site_name}. Available: {available_sites}"
+            )
+        
+        # Get crawler config if exists
+        config = await CrawlerConfig.find_one(CrawlerConfig.site_name == site_name)
+        base_url = config.base_url if config else None
+        
+        # Run crawl synchronously
+        result = await crawler_service.crawl_site(site_name, base_url)
+        
+        return {
+            "message": f"Manual crawl completed for {site_name}",
+            "site_name": site_name,
+            "success": result.get("success", False),
+            "articles_found": result.get("articles_found", 0),
+            "articles_saved": result.get("articles_saved", 0),
+            "articles_skipped": result.get("articles_skipped", 0),
+            "log_id": result.get("log_id"),
+            "error": result.get("error")
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error running manual crawl: {str(e)}")
 
 
 @router.post("/test-translation-task", response_model=dict)

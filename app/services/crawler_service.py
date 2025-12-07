@@ -2,7 +2,7 @@ from typing import List, Dict, Any, Optional
 from app.models.crawl_result import CrawlResult
 from app.models.crawler_config import CrawlerConfig
 from app.models.crawl_log import CrawlLog
-from app.crawlers import CoinbaseCrawler, CoindeskCrawler, CryptoNewsCrawler
+from app.crawlers import CoinbaseCrawler, CoindeskCrawler, CryptoNewsCrawler, CointelegraphCrawler
 from app.core.base_crawler import BaseCrawler
 import datetime
 import time
@@ -18,6 +18,7 @@ class CrawlerService:
         "coinbase": CoinbaseCrawler,
         "coindesk": CoindeskCrawler,
         "crypto_news": CryptoNewsCrawler,
+        "cointelegraph": CointelegraphCrawler,
     }
     
     @staticmethod
