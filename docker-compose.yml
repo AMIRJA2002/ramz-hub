@@ -65,7 +65,7 @@ services:
       - .env
     volumes:
       - .:/app
-    command: celery -A app.celery_app worker --loglevel=info --concurrency=4 -E --hostname=crawler_worker@%h -Q default,coindesk,crypto_news,coinbase
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=4 -E --hostname=crawler_worker@%h -Q default,coindesk,crypto_news,coinbase,cointelegraph
 
   celery_beat:
     build: .
