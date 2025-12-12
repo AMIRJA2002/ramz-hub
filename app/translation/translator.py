@@ -15,41 +15,47 @@ class Translator:
         """
         self.article = article
         self.provider = provider
-        self.openrouter_model = openrouter_model or "google/gemini-2.5-flash-lite-preview-09-2025"
-
-    # ------------------- GOOGLE -------------------
+        self.openrouter_model = openrouter_model or "google/gemini-2.5-pro"
 
     def _client(self):
         if not settings.GEMINI_API_KEY:
             raise ValueError("GEMINI_API_KEY is not set")
-        return genai.Client(api_key=settings.GEMINI_API_KEY)
-
-    # ------------------- PROMPT -------------------
+        a = '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'
+        return genai.Client(api_key=a)
 
     def _prompt(self, title: str, body: str):
         data: dict = {"title": title, "body": body}
 
         return f"""
-You will receive a JSON object containing an English 'title' and 'body'.
+    You will receive a JSON object containing an English 'title' and 'body' of a cryptocurrency-related article.
 
-Your tasks:
-1. Translate the 'title' into Persian.
-2. Summarize the 'body' in Persian:
-   - Remove redundant or repeated content.
-   - Exclude anything unrelated to the main article.
-   - Keep the summary concise, clear, and accurate.
-3. Return ONLY a valid JSON object in this exact format:
+    Your tasks:
 
-{{
-  "title": "...",
-  "summary": "..."
-}}
+    1. Translate the 'title' into Persian and return it as a string.
+    2. Translate the 'body' into Persian and highlight key points:
+       - Keep it concise and clear.
+       - Use tags or markers for important sections if relevant.
+    3. Perform sentiment analysis on the article:
+       - Provide a score from 1 to 5 (1 = very negative, 5 = very positive).
+       - Include a brief explanation if needed.
+    4. Identify mentioned cryptocurrencies:
+       - Return a list of objects with 'name' and 'symbol' for each currency mentioned (e.g., "Bitcoin" -> "BTC").
+    5. Explain briefly why this news is important in one or two sentences.
+    6. Describe the potential impact of this news on the market in one or two sentences.
+    7. Return ONLY a valid JSON object with the following keys:
 
-Input JSON:
-{json.dumps(data, ensure_ascii=False)}
-"""
+    {{
+      "title": "...",               # Persian translation of the title
+      "body": "...",                # Persian translation of the body with highlighted key points
+      "sentiment_score": 1,         # 1 to 5
+      "tags": ["BTC", "ETH", ...],  # list of cryptocurrency symbols mentioned
+      "importance": "...",          # why this news is important
+      "market_impact": "..."        # impact on the market
+    }}
 
-    # ------------------- OPENROUTER -------------------
+    Input JSON:
+    {json.dumps(data, ensure_ascii=False)}
+    """
 
     def _call_openrouter_model(self, prompt: str):
         API_KEY = settings.OPENROUTER_API_KEY
@@ -86,8 +92,6 @@ Input JSON:
         
         return result["choices"][0]["message"]["content"]
 
-    # ------------------- GOOGLE -------------------
-
     def _call_model_google(self, client, prompt: str):
         models_to_try = [
             "gemini-2.5-flash",
@@ -101,8 +105,6 @@ Input JSON:
             config={"response_mime_type": "application/json"}
         )
         return response.text
-
-    # ------------------- MAIN ENTRY -------------------
 
     def translate(self):
         title, body = self.article.title, self.article.content
@@ -118,8 +120,6 @@ Input JSON:
             raise ValueError("Invalid provider: choose 'google' or 'openrouter'")
 
         return result
-
-    # ------------------- SAVE RESULT -------------------
 
     async def translate_and_save(self):
         """Translate article and save to Translation model"""
